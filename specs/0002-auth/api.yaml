@@ -1,0 +1,466 @@
+openapi: 3.1.0
+info:
+  title: Setor.in Auth API
+  version: "0.1.0"
+  description: |
+    Authentication & user management endpoints for Setor.in.
+    All authentication itself happens at Keycloak. Backend only validates JWTs
+    and manages local user profile + role/audit data.
+  contact:
+    name: Setor.in Backend
+    email: backend@setor.in
+
+servers:
+  - url: http://localhost:8000
+    description: Local dev
+  - url: https://api.setor.in
+    description: Production
+
+# ──────────────────────────────────────────────────────────────────────────
+# Security: All protected endpoints require Bearer token from Keycloak
+# ──────────────────────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Common envelope
+  # ────────────────────────────────────────────────────────────────────────
+  schemas:
+    Envelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          description: Response payload (varies per endpoint)
+        meta:
+          type: object
+          additionalProperties: true
+        error:
+          $ref: '#/components/schemas/Error'
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: TOKEN_EXPIRED
+        message:
+          type: string
+          example: "JWT token has expired"
+        details:
+          type: object
+          additionalProperties: true
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        page_size:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 153
+        total_pages:
+          type: integer
+          example: 8
+
+    User:
+      type: object
+      required: [id, keycloak_id, email, full_name, primary_role, status, email_verified, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        keycloak_id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        phone: { type: string, nullable: true }
+        full_name: { type: string }
+        avatar_url: { type: string, nullable: true }
+        primary_role:
+          type: string
+          enum: [user, collector, admin, super_admin]
+        status:
+          type: string
+          enum: [pending_verification, active, suspended, deleted]
+        email_verified: { type: boolean }
+        last_login_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Me:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          required: [roles]
+          properties:
+            roles:
+              type: array
+              items: { type: string }
+              example: [user, collector]
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        full_name: { type: string, minLength: 1, maxLength: 120 }
+        phone: { type: string, pattern: '^\+62\d{8,12}$' }
+        avatar_url: { type: string, format: uri, nullable: true }
+
+    BecomeCollectorRequest:
+      type: object
+      required: [business_name, address, ktp_url]
+      properties:
+        business_name: { type: string, minLength: 3, maxLength: 120 }
+        license_no: { type: string, nullable: true }
+        address: { type: string, minLength: 10 }
+        ktp_url: { type: string, format: uri }
+        siup_url: { type: string, format: uri, nullable: true }
+        latitude: { type: number, minimum: -90, maximum: 90, nullable: true }
+        longitude: { type: number, minimum: -180, maximum: 180, nullable: true }
+
+    CollectorApplication:
+      type: object
+      required: [id, user_id, business_name, status, submitted_at]
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        business_name: { type: string }
+        license_no: { type: string, nullable: true }
+        address: { type: string }
+        ktp_url: { type: string }
+        siup_url: { type: string, nullable: true }
+        status: { type: string, enum: [pending, approved, rejected] }
+        rejection_reason: { type: string, nullable: true }
+        reviewed_by: { type: string, format: uuid, nullable: true }
+        submitted_at: { type: string, format: date-time }
+        reviewed_at: { type: string, format: date-time, nullable: true }
+
+    UpdateUserStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [active, suspended] }
+        reason: { type: string, nullable: true }
+
+    UpdateUserRolesRequest:
+      type: object
+      properties:
+        add:
+          type: array
+          items: { type: string, enum: [user, collector, admin, super_admin] }
+        remove:
+          type: array
+          items: { type: string, enum: [user, collector, admin, super_admin] }
+        reason: { type: string, nullable: true }
+
+    RejectApplicationRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 5 }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: "Missing or invalid token"
+    Forbidden:
+      description: Insufficient role
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+          example:
+            error:
+              code: INSUFFICIENT_ROLE
+              message: "Required role: admin"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+
+# ──────────────────────────────────────────────────────────────────────────
+security:
+  - bearerAuth: []
+
+# ──────────────────────────────────────────────────────────────────────────
+paths:
+  # ───── AUTH ──────
+  /v1/auth/sync:
+    post:
+      tags: [auth]
+      summary: Sync Keycloak user → local DB (call after first login)
+      description: |
+        Idempotent. Creates local user row if not exists; updates `last_login_at`.
+        Should be called by frontend after every successful Keycloak login.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: User synced
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/auth/me:
+    get:
+      tags: [auth]
+      summary: Get current authenticated user (with roles)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke refresh token
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '204':
+          description: Logged out
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ───── USER (self) ──────
+  /v1/users/me:
+    get:
+      tags: [user]
+      summary: Get my profile
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/User' }
+    patch:
+      tags: [user]
+      summary: Update my profile
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateProfileRequest' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/User' }
+
+  /v1/users/me/become-collector:
+    post:
+      tags: [user]
+      summary: Submit application to become a collector
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BecomeCollectorRequest' }
+      responses:
+        '201':
+          description: Application submitted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CollectorApplication' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ───── ADMIN ──────
+  /v1/admin/users:
+    get:
+      tags: [admin]
+      summary: List users (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: role
+          schema: { type: string, enum: [user, collector, admin, super_admin] }
+        - in: query
+          name: status
+          schema: { type: string, enum: [pending_verification, active, suspended, deleted] }
+        - in: query
+          name: q
+          schema: { type: string }
+          description: Search by email or full_name (ILIKE)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/User' }
+                      meta: { $ref: '#/components/schemas/Pagination' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/admin/users/{id}:
+    get:
+      tags: [admin]
+      summary: Get user detail
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/admin/users/{id}/status:
+    patch:
+      tags: [admin]
+      summary: Suspend / unsuspend user
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateUserStatusRequest' }
+      responses:
+        '200':
+          description: Updated
+
+  /v1/admin/users/{id}/roles:
+    patch:
+      tags: [admin]
+      summary: Add / remove roles (super_admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateUserRolesRequest' }
+      responses:
+        '200':
+          description: Updated
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/admin/collector-applications:
+    get:
+      tags: [admin]
+      summary: List collector applications
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [pending, approved, rejected] }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: OK
+
+  /v1/admin/collector-applications/{id}/approve:
+    post:
+      tags: [admin]
+      summary: Approve collector application
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Approved (Keycloak role added)
+
+  /v1/admin/collector-applications/{id}/reject:
+    post:
+      tags: [admin]
+      summary: Reject collector application
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RejectApplicationRequest' }
+      responses:
+        '200':
+          description: Rejected

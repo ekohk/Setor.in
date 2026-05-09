@@ -1,0 +1,42 @@
+# Binaries
+bin/
+tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Air
+build-errors.log
+
+# Go workspace
+go.work
+go.work.sum
+
+# Goose generated (kalau pakai go file format, bukan kasus kita)
+
+# Uploads (dev)
+uploads/

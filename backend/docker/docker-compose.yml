@@ -1,0 +1,133 @@
+name: setorin
+
+services:
+  # ──────────────────────────────────────────────────────────────────────
+  # Postgres untuk Setor.in App (dengan PostGIS untuk geo-search)
+  # ──────────────────────────────────────────────────────────────────────
+  postgres-app:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: setorin-postgres-app
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: setorin
+      POSTGRES_PASSWORD: setorin_dev_pw
+      POSTGRES_DB: setorin
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_app_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U setorin -d setorin"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - setorin-net
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Postgres untuk Keycloak (terpisah dari app DB)
+  # ──────────────────────────────────────────────────────────────────────
+  postgres-keycloak:
+    image: postgres:16-alpine
+    container_name: setorin-postgres-keycloak
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak_dev_pw
+      POSTGRES_DB: keycloak
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_keycloak_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - setorin-net
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Keycloak 25
+  # ──────────────────────────────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: setorin-keycloak
+    restart: unless-stopped
+    depends_on:
+      postgres-keycloak:
+        condition: service_healthy
+    environment:
+      # Admin bootstrap
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+
+      # Database
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres-keycloak:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak_dev_pw
+
+      # HTTP / Hostname
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8090
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+
+      # Health & metrics
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+
+      # Logging
+      KC_LOG_LEVEL: INFO
+
+      # Cache (single node dev)
+      KC_CACHE: local
+    command:
+      - start-dev
+      - --import-realm
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          exec 3<>/dev/tcp/127.0.0.1/9000;
+          echo -e "GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3;
+          cat <&3 | grep -q '"status": "UP"'
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    networks:
+      - setorin-net
+
+  # ──────────────────────────────────────────────────────────────────────
+  # MailHog — SMTP catcher untuk dev
+  # ──────────────────────────────────────────────────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: setorin-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI: http://localhost:8025
+    networks:
+      - setorin-net
+
+# ──────────────────────────────────────────────────────────────────────
+volumes:
+  postgres_app_data:
+    name: setorin_postgres_app_data
+  postgres_keycloak_data:
+    name: setorin_postgres_keycloak_data
+
+networks:
+  setorin-net:
+    name: setorin-net
+    driver: bridge
