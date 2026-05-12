@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Global tokens lifted from project/styles.css :root.
+ * Tailwind config exposes these as utility classes; raw vars also available
+ * for use in inline style or rare edge cases.
+ */
+:root {
+  --accent: #2f7d52;
+  --accent-deep: #1f5d3a;
+  --accent-soft: #eaf3ec;
+  --ink: #131815;
+  --ink-2: #2f3833;
+  --ink-3: #6e776f;
+  --ink-4: #a3aaa3;
+  --paper: #f6f6f3;
+  --paper-2: #efefea;
+  --surface: #ffffff;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+
+/* Mesh background — copied from styles.css `.stage-bg.mesh` */
+.bg-mesh {
+  background:
+    radial-gradient(45% 35% at 22% 20%, oklch(0.92 0.04 145 / 0.7), transparent 65%),
+    radial-gradient(40% 35% at 80% 80%, oklch(0.93 0.03 130 / 0.6), transparent 65%),
+    linear-gradient(180deg, #f4f4f0, #ebebe6);
+}
+
+/* Glass card primitive */
+.glass {
+  background: var(--surface);
+  border: 1px solid rgba(20,30,24,0.08);
+  border-radius: 18px;
+  box-shadow: 0 6px 24px rgba(20,30,24,0.05), 0 1px 0 rgba(255,255,255,0.7) inset;
+}
