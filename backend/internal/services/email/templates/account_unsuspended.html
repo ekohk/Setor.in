@@ -1,0 +1,23 @@
+{{define "account_unsuspended"}}{{template "header" .}}
+<div style="text-align:center;padding:8px 0 14px 0;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+    <tr><td style="width:64px;height:64px;background-color:#eaf3ec;border-radius:18px;text-align:center;vertical-align:middle;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+        <path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6l-8-3z" stroke="#1f5d3a" stroke-width="2" stroke-linejoin="round"/>
+        <path d="m9 12 2 2 4-4" stroke="#1f5d3a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </td></tr>
+  </table>
+</div>
+
+<h1 style="margin:0 0 10px 0;font-size:22px;font-weight:700;letter-spacing:-0.025em;color:#131815;text-align:center;">Akun aktif kembali</h1>
+<p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:#6e776f;text-align:center;">
+  Halo {{.FullName}}, tim Setor.in telah mengaktifkan kembali akun Anda. Anda bisa langsung login dan kembali menggunakan aplikasi seperti biasa.
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;">
+  <tr><td style="background-color:#eaf3ec;border-radius:12px;padding:14px 16px;font-size:13px;color:#1f5d3a;line-height:1.5;text-align:center;">
+    Saldo wallet Anda tetap utuh dan siap digunakan.
+  </td></tr>
+</table>
+<p style="margin:20px 0 0 0;font-size:13px;color:#6e776f;line-height:1.5;text-align:center;">Terima kasih atas kesabaran Anda selama proses peninjauan.</p>
+{{template "footer" .}}{{end}}

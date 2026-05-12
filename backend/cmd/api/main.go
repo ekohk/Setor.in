@@ -19,7 +19,20 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	authpersist "github.com/setorin/setorin/backend/internal/apps/auth/adapters/persistence"
+	authhttp "github.com/setorin/setorin/backend/internal/apps/auth/delivery/http"
+	authuc "github.com/setorin/setorin/backend/internal/apps/auth/application/usecase"
+	catalogpersist "github.com/setorin/setorin/backend/internal/apps/catalog/adapters/persistence"
+	cataloghttp "github.com/setorin/setorin/backend/internal/apps/catalog/delivery/http"
+	cataloguc "github.com/setorin/setorin/backend/internal/apps/catalog/application/usecase"
+	orderpersist "github.com/setorin/setorin/backend/internal/apps/order/adapters/persistence"
+	orderhttp "github.com/setorin/setorin/backend/internal/apps/order/delivery/http"
+	orderuc "github.com/setorin/setorin/backend/internal/apps/order/application/usecase"
+	userpersist "github.com/setorin/setorin/backend/internal/apps/user/adapters/persistence"
+	userhttp "github.com/setorin/setorin/backend/internal/apps/user/delivery/http"
+	useruc "github.com/setorin/setorin/backend/internal/apps/user/application/usecase"
 	"github.com/setorin/setorin/backend/internal/infrastructure/keycloak"
+	"github.com/setorin/setorin/backend/internal/services/email"
 	"github.com/setorin/setorin/backend/internal/shared/config"
 	"github.com/setorin/setorin/backend/internal/shared/database"
 	"github.com/setorin/setorin/backend/internal/shared/logger"
@@ -68,6 +81,11 @@ func run() error {
 		slog.Warn("keycloak admin health check failed; will retry on demand", "err", err)
 	}
 
+	emailSvc, err := email.NewService(cfg.SMTP)
+	if err != nil {
+		return fmt.Errorf("init email service: %w", err)
+	}
+
 	if cfg.IsProduction() {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -77,7 +95,7 @@ func run() error {
 	r.Use(requestLogger())
 	r.Use(corsMiddleware(cfg.CORS.AllowedOrigins))
 
-	registerRoutes(r, pool, jwtValidator, kcAdmin)
+	registerRoutes(r, pool, jwtValidator, kcAdmin, emailSvc)
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.App.Port),
@@ -116,58 +134,58 @@ func run() error {
 	return nil
 }
 
-// registerRoutes wires up endpoints. Module routes are added in Batch 3+.
-//
-//nolint:revive // signature will grow as more wired services are introduced
+// registerRoutes wires up all HTTP routes. Each module owns its own
+// RegisterRoutes function that mounts under the shared /v1 group.
 func registerRoutes(
 	r *gin.Engine,
 	pool *pgxpool.Pool,
 	jwtV *keycloak.Validator,
-	_ *keycloak.AdminClient, // wired in Batch 3 when admin endpoints land
+	kcAdmin *keycloak.AdminClient,
+	mail *email.Service,
 ) {
-	r.GET("/health", func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
-		defer cancel()
+	// ───── Public ─────
+	r.GET("/health", healthHandler(pool))
+	r.GET("/", rootHandler())
 
-		dbStatus := "ok"
-		if err := pool.Ping(ctx); err != nil {
-			dbStatus = "down"
-		}
-
-		response.OK(c, gin.H{
-			"status": "ok",
-			"checks": gin.H{
-				"db": dbStatus,
-			},
-		})
-	})
-
-	r.GET("/", func(c *gin.Context) {
-		response.OK(c, gin.H{
-			"name":    "setorin-api",
-			"version": "0.1.0",
-		})
-	})
-
-	// ───── Batch 2 smoke-test endpoints (will be replaced by /v1/auth/* in Batch 3+) ─────
+	// ───── /v1 group ─────
 	v1 := r.Group("/v1")
 
-	// /v1/auth/whoami — returns decoded JWT claims. Useful for debugging JWT setup.
-	v1.GET("/auth/whoami", middleware.JWT(jwtV), func(c *gin.Context) {
-		claims := middleware.MustClaims(c)
-		response.OK(c, gin.H{
-			"sub":            claims.Subject,
-			"email":          claims.Email,
-			"email_verified": claims.EmailVerified,
-			"name":           claims.Name,
-			"roles":          claims.RealmAccess.Roles,
-			"issuer":         claims.Issuer,
-			"audience":       claims.Audience,
-			"expires_at":     claims.ExpiresAt,
-		})
-	})
+	// Shared repositories
+	userRepo := userpersist.NewPostgresUserRepo(pool)
+	auditRepo := authpersist.NewPostgresAuthEventRepo(pool)
+	collectorRepo := authpersist.NewPostgresCollectorAppRepo(pool)
+	adminUserRepo := authpersist.NewPostgresAdminUserRepo(pool)
 
-	// /v1/admin/ping — RBAC smoke test. Requires `admin` role.
+	// Shared services
+	auditSvc := authuc.NewAuditService(auditRepo)
+
+	// User module — /v1/auth/sync, /v1/auth/me, /v1/users/me*
+	userUC := useruc.NewUserUseCase(userRepo, kcAdmin, mail)
+	userHandler := userhttp.NewHandler(userUC)
+	userhttp.RegisterRoutes(v1, userHandler, jwtV)
+
+	// Auth module — /v1/users/me/become-collector, /v1/admin/*
+	collectorUC := authuc.NewCollectorApplicationUseCase(collectorRepo, userRepo, adminUserRepo, kcAdmin, auditSvc, mail)
+	adminUC := authuc.NewAdminUserUseCase(adminUserRepo, kcAdmin, auditSvc, mail)
+	adminHandler := authhttp.NewAdminHandler(adminUC, collectorUC, userRepo)
+	userCollectorHandler := authhttp.NewUserCollectorHandler(collectorUC)
+	authhttp.RegisterRoutes(v1, adminHandler, userCollectorHandler, jwtV)
+
+	// Catalog module — public /v1/materials, admin /v1/admin/materials
+	materialRepo := catalogpersist.NewPostgresMaterialRepo(pool)
+	materialUC := cataloguc.NewMaterialUseCase(materialRepo)
+	materialHandler := cataloghttp.NewHandler(materialUC, userRepo)
+	cataloghttp.RegisterRoutes(v1, materialHandler, jwtV)
+
+	// Order module — /v1/orders/*, /v1/collector/orders/*
+	orderRepo := orderpersist.NewPostgresOrderRepo(pool)
+	userOrderUC := orderuc.NewUserOrderUseCase(orderRepo, materialRepo, userRepo, mail)
+	collectorOrderUC := orderuc.NewCollectorOrderUseCase(orderRepo, userRepo, mail)
+	userOrderHandler := orderhttp.NewUserHandler(userOrderUC, userRepo)
+	collectorOrderHandler := orderhttp.NewCollectorHandler(collectorOrderUC, userRepo)
+	orderhttp.RegisterRoutes(v1, userOrderHandler, collectorOrderHandler, jwtV)
+
+	// ───── Smoke-test endpoint kept for RBAC verification ─────
 	v1.GET("/admin/ping",
 		middleware.JWT(jwtV),
 		middleware.RequireRole(middleware.RoleAdmin),
@@ -179,6 +197,32 @@ func registerRoutes(
 			})
 		},
 	)
+}
+
+func healthHandler(pool *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+
+		dbStatus := "ok"
+		if err := pool.Ping(ctx); err != nil {
+			dbStatus = "down"
+		}
+
+		response.OK(c, gin.H{
+			"status": "ok",
+			"checks": gin.H{"db": dbStatus},
+		})
+	}
+}
+
+func rootHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		response.OK(c, gin.H{
+			"name":    "setorin-api",
+			"version": "0.1.0",
+		})
+	}
 }
 
 // requestLogger logs each request with method, path, status, and duration.

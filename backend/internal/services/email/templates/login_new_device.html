@@ -1,0 +1,39 @@
+{{define "login_new_device"}}{{template "header" .}}
+<div style="text-align:center;padding:8px 0 14px 0;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+    <tr><td style="width:64px;height:64px;background-color:#fdf2e9;border-radius:18px;text-align:center;vertical-align:middle;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="5" width="18" height="12" rx="2" stroke="#a05a2c" stroke-width="2"/>
+        <path d="M9 21h6M12 17v4" stroke="#a05a2c" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </td></tr>
+  </table>
+</div>
+
+<h1 style="margin:0 0 10px 0;font-size:22px;font-weight:700;letter-spacing:-0.025em;color:#131815;text-align:center;">Login dari perangkat baru</h1>
+<p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:#6e776f;text-align:center;">
+  Halo {{.FullName}}, kami mendeteksi login ke akun Anda dari perangkat yang belum dikenali.
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 0 0;background-color:#f6f6f3;border-radius:12px;">
+  <tr><td style="padding:14px 18px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="font-size:13px;color:#6e776f;padding:4px 0;width:35%;">Waktu</td>
+        <td style="font-size:13px;color:#131815;font-weight:600;padding:4px 0;">{{.LoginAt}}</td>
+      </tr>
+      {{if .Device}}
+      <tr><td style="font-size:13px;color:#6e776f;padding:4px 0;">Perangkat</td>
+        <td style="font-size:13px;color:#131815;font-weight:600;padding:4px 0;">{{.Device}}</td></tr>
+      {{end}}
+      {{if .IPAddress}}
+      <tr><td style="font-size:13px;color:#6e776f;padding:4px 0;">IP</td>
+        <td style="font-size:13px;color:#131815;font-weight:600;padding:4px 0;">{{.IPAddress}}</td></tr>
+      {{end}}
+      {{if .Location}}
+      <tr><td style="font-size:13px;color:#6e776f;padding:4px 0;">Lokasi (perkiraan)</td>
+        <td style="font-size:13px;color:#131815;font-weight:600;padding:4px 0;">{{.Location}}</td></tr>
+      {{end}}
+    </table>
+  </td></tr>
+</table>
+{{template "footer" .}}{{end}}

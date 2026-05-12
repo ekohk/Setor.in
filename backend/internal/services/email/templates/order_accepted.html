@@ -1,0 +1,29 @@
+{{define "order_accepted"}}{{template "header" .}}
+<div style="text-align:center;padding:6px 0 16px 0;">
+  <span style="display:inline-block;padding:6px 14px;background-color:#ccfbf1;color:#0f766e;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;border-radius:999px;">Diterima collector</span>
+</div>
+
+<h1 style="margin:0 0 10px 0;font-size:22px;font-weight:700;letter-spacing:-0.025em;color:#131815;">Collector siap menerima order Anda</h1>
+<p style="margin:0 0 18px 0;font-size:14px;line-height:1.6;color:#2f3833;">
+  Halo {{.FullName}}, order <strong>{{.OrderCode}}</strong> sudah diterima collector.
+  Tunjukkan kode di bawah saat driver tiba — driver akan input untuk konfirmasi serah terima.
+</p>
+
+<!-- OTP block — most prominent visual -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;">
+  <tr>
+    <td align="center" style="background-color:#f6f6f3;border:2px dashed #0f766e;border-radius:14px;padding:22px 16px;">
+      <div style="font-size:10px;color:#6e776f;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;">Kode verifikasi</div>
+      <div style="font-size:42px;font-weight:700;letter-spacing:0.5em;color:#0f766e;font-family:'SF Mono',Menlo,Monaco,monospace;line-height:1;">{{.OTPCode}}</div>
+      <div style="font-size:12px;color:#6e776f;margin-top:10px;">Berlaku 30 menit</div>
+    </td>
+  </tr>
+</table>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0;">
+  <tr><td style="background-color:#fdf2e9;border-radius:12px;padding:14px 16px;font-size:13px;color:#a05a2c;line-height:1.5;">
+    <strong>Penting:</strong> Hanya berikan kode ini saat driver fisik berada di lokasi Anda.
+    Tim Setor.in tidak akan pernah meminta kode ini.
+  </td></tr>
+</table>
+{{template "footer" .}}{{end}}

@@ -4,7 +4,11 @@
       "Bash(go mod *)",
       "Bash(go run *)",
       "Bash(curl.exe -s http://localhost:8000/health)",
-      "Bash(curl.exe -s http://localhost:8000/)"
+      "Bash(curl.exe -s http://localhost:8000/)",
+      "Bash(mkdir -p \"c:/Users/HP/OneDrive/Documents/Setor.in/backend/docs/postman\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\HP\\OneDrive\\Documents\\Setor.in\\backend\\docs"
     ]
   }
 }

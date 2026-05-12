@@ -17,6 +17,25 @@ Format: `<filename> — <YYYY-MM-DD> — <PR#> — <summary>`
 
 ---
 
+## Sprint 0003 — Catalog & Pricing
+
+| File | Date | PR | Summary |
+|---|---|---|---|
+| `00004_create_materials.sql` | 2026-05-11 | TBD | Tabel `materials` (master 8 kategori) + `material_prices` (time-series, append-only). LATERAL join pattern untuk lookup current price |
+| `00005_seed_materials.sql` | 2026-05-11 | TBD | Seed 8 initial materials (plastik, kardus, kertas, aluminium, tembaga, besi, kaca, e-waste) dengan harga awal dari design bundle |
+
+---
+
+## Sprint 0004 — Order Management (Cash)
+
+| File | Date | PR | Summary |
+|---|---|---|---|
+| `00006_create_orders.sql` | 2026-05-11 | TBD | Tabel `orders` dengan 10-state enum + `order_status_history` (audit trail) + `order_photos`. Sequence `order_code_seq` untuk ECC-XXXXX. Kolom `payment_method` siap untuk wallet (Phase 2) tapi default 'cash' untuk MVP. |
+
+Catatan: migration `00006_create_wallets.sql` sempat dibuat untuk wallet module, lalu **rolled back & dihapus** karena pivot ke cash payment. Spec asli di-archive ke `specs/_archived/0004-wallet/`.
+
+---
+
 ## Operational Notes
 
 ### Cara jalankan

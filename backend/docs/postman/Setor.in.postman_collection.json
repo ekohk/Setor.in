@@ -1,0 +1,931 @@
+{
+  "info": {
+    "name": "Setor.in API",
+    "description": "Setor.in backend collection — happy path only.\n\n## Auto-token magic\nThis collection has a **collection-level pre-request script** that auto-fetches a fresh token before EVERY request when the saved one is missing or expired. You don't need to manually run Login first — just hit any request and the script handles it.\n\nFolder `01 — Auth (Keycloak)` is kept for explicit login/refresh, but you'll rarely need it.\n\n## Setup\n1. Import this file + `Setor.in.postman_environment.json`\n2. Top-right dropdown → **Setor.in Local Dev**\n3. Backend & docker running (`make up` + `go run ./cmd/api`)\n4. Just click any request → token auto-fills, then request runs\n\n## Switching user (admin / super_admin)\nEdit env vars `user_email` & `user_password`. Token will auto-refresh on next request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-token: ensure access_token in env is fresh before any request.",
+          "// Skips for requests that DON'T need a token (e.g. health, login itself).",
+          "const skipPaths = ['/health', '/realms/'];",
+          "const url = pm.request.url.toString();",
+          "if (skipPaths.some(p => url.includes(p))) return;",
+          "",
+          "// Decode current token if any; check exp claim with 30s safety buffer.",
+          "function tokenIsFresh() {",
+          "  const t = pm.environment.get('access_token');",
+          "  if (!t) return false;",
+          "  try {",
+          "    const payload = JSON.parse(atob(t.split('.')[1]));",
+          "    const now = Math.floor(Date.now() / 1000);",
+          "    return payload.exp - now > 30;",
+          "  } catch (e) { return false; }",
+          "}",
+          "",
+          "if (tokenIsFresh()) return;",
+          "",
+          "// Token missing or expired — fetch a new one synchronously.",
+          "const kcBase  = pm.environment.get('kc_base_url');",
+          "const kcRealm = pm.environment.get('kc_realm');",
+          "const cid     = pm.environment.get('kc_web_client_id');",
+          "const email   = pm.environment.get('user_email');",
+          "const pwd     = pm.environment.get('user_password');",
+          "",
+          "if (!email || !pwd) {",
+          "  console.error('user_email / user_password not set in environment');",
+          "  return;",
+          "}",
+          "",
+          "console.log('[auto-token] fetching new token for', email);",
+          "",
+          "pm.sendRequest({",
+          "  url: `${kcBase}/realms/${kcRealm}/protocol/openid-connect/token`,",
+          "  method: 'POST',",
+          "  header: { 'Content-Type': 'application/x-www-form-urlencoded' },",
+          "  body: {",
+          "    mode: 'urlencoded',",
+          "    urlencoded: [",
+          "      { key: 'grant_type', value: 'password' },",
+          "      { key: 'client_id',  value: cid },",
+          "      { key: 'username',   value: email },",
+          "      { key: 'password',   value: pwd },",
+          "      { key: 'scope',      value: 'openid profile email' }",
+          "    ]",
+          "  }",
+          "}, (err, res) => {",
+          "  if (err) { console.error('[auto-token] error', err); return; }",
+          "  if (res.code !== 200) { console.error('[auto-token] status', res.code, res.text()); return; }",
+          "  const j = res.json();",
+          "  pm.environment.set('access_token', j.access_token);",
+          "  pm.environment.set('refresh_token', j.refresh_token);",
+          "  try {",
+          "    const payload = JSON.parse(atob(j.access_token.split('.')[1]));",
+          "    pm.environment.set('keycloak_id', payload.sub);",
+          "    console.log('[auto-token] OK as', payload.email, '| roles:', payload.realm_access.roles.join(', '));",
+          "  } catch (e) {}",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00 — Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/health",
+              "host": ["{{api_base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('db is ok', () => {",
+                  "  pm.expect(pm.response.json().data.checks.db).to.eql('ok');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 — Auth (Keycloak) [optional]",
+      "description": "Manual login/refresh. Usually NOT needed because auto-token at collection level handles it.\n\nUse this folder only if you want to inspect raw Keycloak response or force a fresh token.",
+      "item": [
+        {
+          "name": "Manual Login (force refresh token)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password" },
+                { "key": "client_id",  "value": "{{kc_web_client_id}}" },
+                { "key": "username",   "value": "{{user_email}}" },
+                { "key": "password",   "value": "{{user_password}}" },
+                { "key": "scope",      "value": "openid profile email" }
+              ]
+            },
+            "url": {
+              "raw": "{{kc_base_url}}/realms/{{kc_realm}}/protocol/openid-connect/token",
+              "host": ["{{kc_base_url}}"],
+              "path": ["realms", "{{kc_realm}}", "protocol", "openid-connect", "token"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login ok', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.environment.set('access_token', j.access_token);",
+                  "pm.environment.set('refresh_token', j.refresh_token);",
+                  "try {",
+                  "  const payload = JSON.parse(atob(j.access_token.split('.')[1]));",
+                  "  pm.environment.set('keycloak_id', payload.sub);",
+                  "  console.log('Logged in as', payload.email);",
+                  "  console.log('Roles:', payload.realm_access.roles.join(', '));",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 — User",
+      "description": "Profile management. /sync creates the local DB row on first call (idempotent on subsequent).",
+      "item": [
+        {
+          "name": "POST /v1/auth/sync",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{api_base_url}}/v1/auth/sync",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "auth", "sync"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.environment.set('user_id', j.data.id);",
+                  "console.log('user_id =', j.data.id, '| status:', j.data.status, '| roles:', j.data.roles.join(', '));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/auth/me",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/auth/me",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "auth", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/users/me",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/users/me",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "users", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /v1/users/me — update profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Eko Hadi Kuncoro\",\n  \"phone\": \"+628123456789\"\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/users/me",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "users", "me"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 — Become Collector (user)",
+      "item": [
+        {
+          "name": "POST /v1/users/me/become-collector",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"business_name\": \"Eko Recycling\",\n  \"license_no\": \"SIUP-2026-001\",\n  \"ktp_url\": \"https://example.com/ktp.jpg\",\n  \"siup_url\": \"https://example.com/siup.jpg\",\n  \"address\": \"Jl. Kemang Raya 14, Jakarta Selatan\"\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/users/me/become-collector",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "users", "me", "become-collector"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.environment.set('application_id', j.data.id);",
+                  "console.log('Application submitted, id =', j.data.id, '| status:', j.data.status);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 — Admin (need admin role)",
+      "description": "Switch user to one with `admin` role first:\n1. Edit env: user_email/user_password to your admin user (e.g. ari@setor.local / Ari1234!)\n2. Auto-token will fetch new token on next request.",
+      "item": [
+        {
+          "name": "GET /v1/admin/users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/admin/users?page=1&page_size=20",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "admin", "users"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "console.log('Total users:', pm.response.json().meta.total);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/admin/collector-applications?status=pending",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/admin/collector-applications?status=pending",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "admin", "collector-applications"],
+              "query": [{ "key": "status", "value": "pending" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j.data && j.data.length > 0) {",
+                  "  pm.environment.set('application_id', j.data[0].id);",
+                  "  console.log('Picked application_id:', j.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/admin/collector-applications/:id/approve",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{api_base_url}}/v1/admin/collector-applications/{{application_id}}/approve",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "admin", "collector-applications", "{{application_id}}", "approve"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('approved', () => {",
+                  "  pm.expect(pm.response.json().data.status).to.eql('approved');",
+                  "});",
+                  "console.log('Approved! User must re-login (or wait for token refresh) to see collector role.');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /v1/admin/users/:id/status — suspend",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"suspended\",\n  \"reason\": \"Investigation\"\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/admin/users/{{user_id}}/status",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "admin", "users", "{{user_id}}", "status"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /v1/admin/users/:id/status — unsuspend",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\",\n  \"reason\": \"Cleared\"\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/admin/users/{{user_id}}/status",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "admin", "users", "{{user_id}}", "status"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 — Admin role mutation (need super_admin)",
+      "description": "Switch user_email/user_password to your super_admin user. Auto-token will refresh.",
+      "item": [
+        {
+          "name": "PATCH /v1/admin/users/:id/roles — promote to admin",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\",\n  \"reason\": \"Promote to internal admin\"\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/admin/users/{{user_id}}/roles",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "admin", "users", "{{user_id}}", "roles"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 — Materials (public)",
+      "description": "Public catalog endpoints — no token required. Frontend uses these to render the Home screen price list.",
+      "item": [
+        {
+          "name": "GET /v1/materials",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/materials",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "materials"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('returns array', () => pm.expect(j.data).to.be.an('array'));",
+                  "pm.test('has 8 materials seeded', () => pm.expect(j.data.length).to.be.at.least(8));",
+                  "if (j.data.length > 0) {",
+                  "  pm.environment.set('material_id', j.data[0].id);",
+                  "  pm.environment.set('material_slug', j.data[0].slug);",
+                  "  console.log('Materials:', j.data.map(m => `${m.slug}=Rp${m.current_price}/kg`).join(', '));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/materials/:slug",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/materials/{{material_slug}}",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "materials", "{{material_slug}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('slug matches', () => pm.expect(j.data.slug).to.eql(pm.environment.get('material_slug')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 — Materials Admin",
+      "description": "Admin endpoints for catalog. Need `admin` role.\n\nWorkflow:\n1. Run `GET /v1/materials` (folder 06) first to populate `material_id` env var\n2. Make sure your user has `admin` role in Keycloak, then re-login\n3. Run requests below",
+      "item": [
+        {
+          "name": "GET /v1/admin/materials (includes inactive)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/admin/materials",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "admin", "materials"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /v1/admin/materials/:id — update metadata",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Plastik PET bersih, botol minuman, kemasan bekas\",\n  \"sort_order\": 1\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/admin/materials/{{material_id}}",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "admin", "materials", "{{material_id}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/admin/materials/:id/prices — set new price",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price_per_kg\": 6000,\n  \"note\": \"Naik karena pasar internasional naik\"\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/admin/materials/{{material_id}}/prices",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "admin", "materials", "{{material_id}}", "prices"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "console.log('New price:', j.data.price_per_kg, 'valid_from:', j.data.valid_from);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/admin/materials/:id/prices — price history",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/admin/materials/{{material_id}}/prices?limit=20",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "admin", "materials", "{{material_id}}", "prices"],
+              "query": [{ "key": "limit", "value": "20" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log('Price history entries:', j.data.length);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 — Order (user/seller)",
+      "description": "User-side order flow. Run sequence: Create → (collector accepts in folder 09) → Get Detail → ConfirmCash → Done.\n\nMake sure /v1/auth/sync has been run for current user (it auto-creates local row).",
+      "item": [
+        {
+          "name": "POST /v1/orders — create order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"material_slug\": \"plastic\",\n  \"estimated_weight_kg\": \"3.5\",\n  \"method\": \"pickup\",\n  \"address_text\": \"Jl. Kemang Raya 14, Jakarta Selatan\",\n  \"latitude\": -6.262,\n  \"longitude\": 106.815,\n  \"notes\": \"Pagar warna abu-abu, sebelah toko bunga\"\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/orders",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "orders"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.environment.set('order_code', j.data.order_code);",
+                  "console.log('Order code:', j.data.order_code, '| estimated payout: Rp', j.data.estimated_payout);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/orders/me",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/orders/me?page=1&page_size=20",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "orders", "me"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/orders/:code — detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/orders/{{order_code}}",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "orders", "{{order_code}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j.data.otp_code) {",
+                  "  pm.environment.set('otp_code', j.data.otp_code);",
+                  "  console.log('OTP:', j.data.otp_code, '| status:', j.data.status);",
+                  "} else {",
+                  "  console.log('Status:', j.data.status);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/orders/:code/cancel — only if status=received",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"berubah pikiran\"\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/orders/{{order_code}}/cancel",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "orders", "{{order_code}}", "cancel"]
+            }
+          }
+        },
+        {
+          "name": "POST /v1/orders/:code/confirm-cash — final step",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{api_base_url}}/v1/orders/{{order_code}}/confirm-cash",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "orders", "{{order_code}}", "confirm-cash"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log('Order done. Final payout: Rp', j.data.final_payout);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 — Order (collector)",
+      "description": "Collector-side flow. Need `collector` role.\n\nFull pickup flow:\n1. List incoming → pick an order_code\n2. Accept → OTP generated (returned in response)\n3. Start pickup → status=enroute\n4. Arrive → status=arrived\n5. Verify OTP (user gave you the 4-digit code)\n6. Weigh → input actual_weight_kg\n7. Quality → input grade (A/B/C)\n8. (User confirms cash → done in folder 08)",
+      "item": [
+        {
+          "name": "GET /v1/collector/orders/incoming",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/collector/orders/incoming",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "collector", "orders", "incoming"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j.data && j.data.length > 0) {",
+                  "  pm.environment.set('order_code', j.data[0].order_code);",
+                  "  console.log('Picked order_code:', j.data[0].order_code);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/collector/orders/me",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api_base_url}}/v1/collector/orders/me",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "collector", "orders", "me"]
+            }
+          }
+        },
+        {
+          "name": "POST /v1/collector/orders/:code/accept",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{api_base_url}}/v1/collector/orders/{{order_code}}/accept",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "collector", "orders", "{{order_code}}", "accept"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j.data.otp_code) {",
+                  "  pm.environment.set('otp_code', j.data.otp_code);",
+                  "  console.log('OTP generated:', j.data.otp_code);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/collector/orders/:code/start-pickup",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{api_base_url}}/v1/collector/orders/{{order_code}}/start-pickup",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "collector", "orders", "{{order_code}}", "start-pickup"]
+            }
+          }
+        },
+        {
+          "name": "POST /v1/collector/orders/:code/arrive",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{api_base_url}}/v1/collector/orders/{{order_code}}/arrive",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "collector", "orders", "{{order_code}}", "arrive"]
+            }
+          }
+        },
+        {
+          "name": "POST /v1/collector/orders/:code/verify-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"otp_code\": \"{{otp_code}}\"\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/collector/orders/{{order_code}}/verify-otp",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "collector", "orders", "{{order_code}}", "verify-otp"]
+            }
+          }
+        },
+        {
+          "name": "POST /v1/collector/orders/:code/weigh",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actual_weight_kg\": \"3.7\"\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/collector/orders/{{order_code}}/weigh",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "collector", "orders", "{{order_code}}", "weigh"]
+            }
+          }
+        },
+        {
+          "name": "POST /v1/collector/orders/:code/quality",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grade\": \"A\",\n  \"notes\": \"Material bersih, sortir bagus\"\n}"
+            },
+            "url": {
+              "raw": "{{api_base_url}}/v1/collector/orders/{{order_code}}/quality",
+              "host": ["{{api_base_url}}"],
+              "path": ["v1", "collector", "orders", "{{order_code}}", "quality"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "console.log('Final payout: Rp', j.data.final_payout, '| now user confirms cash in folder 08');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

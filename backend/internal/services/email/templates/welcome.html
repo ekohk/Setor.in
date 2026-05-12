@@ -1,0 +1,48 @@
+{{define "welcome"}}{{template "header" .}}
+<div style="text-align:center;padding:8px 0 14px 0;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+    <tr><td style="width:64px;height:64px;background-color:#eaf3ec;border-radius:18px;text-align:center;vertical-align:middle;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+        <path d="M11 20A7 7 0 0 1 4 13V5l8 3a7 7 0 0 1 7 7v5h-8z" stroke="#1f5d3a" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M4 5l11 11" stroke="#1f5d3a" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </td></tr>
+  </table>
+</div>
+
+<h1 style="margin:0 0 10px 0;font-size:22px;font-weight:700;letter-spacing:-0.025em;color:#131815;text-align:center;">Akun Anda aktif</h1>
+<p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:#6e776f;text-align:center;">
+  Halo {{.FullName}}, terima kasih sudah bergabung di Setor.in. Akun Anda kini siap digunakan sebagai <strong style="color:#131815;">penjual sampah daur ulang</strong>.
+</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
+  <tr><td style="padding:16px 18px;background-color:#f6f6f3;border-radius:12px;">
+    <div style="font-size:10px;color:#6e776f;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px;">Tiga langkah pertama Anda</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="vertical-align:top;padding:8px 0;width:32px;"><div style="width:24px;height:24px;background-color:#eaf3ec;border-radius:8px;text-align:center;line-height:24px;color:#1f5d3a;font-weight:700;font-size:13px;">1</div></td>
+        <td style="vertical-align:top;padding:8px 0 8px 12px;">
+          <div style="font-size:13px;font-weight:700;color:#131815;">Lihat harga material hari ini</div>
+          <div style="font-size:12px;color:#6e776f;margin-top:2px;line-height:1.5;">8 kategori material dengan harga update harian.</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="vertical-align:top;padding:8px 0;"><div style="width:24px;height:24px;background-color:#eaf3ec;border-radius:8px;text-align:center;line-height:24px;color:#1f5d3a;font-weight:700;font-size:13px;">2</div></td>
+        <td style="vertical-align:top;padding:8px 0 8px 12px;">
+          <div style="font-size:13px;font-weight:700;color:#131815;">Buat order pertama Anda</div>
+          <div style="font-size:12px;color:#6e776f;margin-top:2px;line-height:1.5;">Pickup di rumah (gratis untuk 5 kg+) atau drop-off ke collector terdekat.</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="vertical-align:top;padding:8px 0;"><div style="width:24px;height:24px;background-color:#eaf3ec;border-radius:8px;text-align:center;line-height:24px;color:#1f5d3a;font-weight:700;font-size:13px;">3</div></td>
+        <td style="vertical-align:top;padding:8px 0 8px 12px;">
+          <div style="font-size:13px;font-weight:700;color:#131815;">Tarik saldo wallet Anda</div>
+          <div style="font-size:12px;color:#6e776f;margin-top:2px;line-height:1.5;">Setelah transaksi pertama, saldo bisa ditarik ke bank atau e-wallet.</div>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+
+<p style="margin:20px 0 0 0;font-size:12px;color:#a3aaa3;text-align:center;line-height:1.6;font-style:italic;">Email ini hanya dikirim sekali, saat akun pertama kali aktif.</p>
+{{template "footer" .}}{{end}}

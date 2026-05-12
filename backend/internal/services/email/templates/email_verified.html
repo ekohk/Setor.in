@@ -1,0 +1,22 @@
+{{define "email_verified"}}{{template "header" .}}
+<div style="text-align:center;padding:8px 0 14px 0;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+    <tr><td style="width:64px;height:64px;background-color:#eaf3ec;border-radius:18px;text-align:center;vertical-align:middle;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="9" fill="#2f7d52"/>
+        <path d="M8 12l3 3 5-6" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </td></tr>
+  </table>
+</div>
+
+<h1 style="margin:0 0 10px 0;font-size:22px;font-weight:700;letter-spacing:-0.025em;color:#131815;text-align:center;">Email Anda terverifikasi</h1>
+<p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:#6e776f;text-align:center;">
+  Halo {{.FullName}}, alamat <strong style="color:#131815;">{{.Email}}</strong> sudah diverifikasi dan akun Anda kini aktif.
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;">
+  <tr><td style="background-color:#eaf3ec;border-radius:12px;padding:14px 16px;font-size:13px;color:#1f5d3a;line-height:1.5;text-align:center;">
+    Anda sekarang bisa login dan menggunakan seluruh fitur Setor.in.
+  </td></tr>
+</table>
+{{template "footer" .}}{{end}}
