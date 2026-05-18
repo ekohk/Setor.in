@@ -1,6 +1,29 @@
 // Shared API response types — mirrors backend DTOs exactly.
 // Keep in sync with backend/internal/apps/*/application/dto/*.go
 
+// ─── User ───────────────────────────────────────────────────────────────────
+
+export interface UserProfile {
+  id: string;
+  keycloak_id: string;
+  email: string;
+  phone?: string;
+  full_name: string;
+  avatar_url?: string;
+  primary_role: 'user' | 'collector' | 'admin' | 'super_admin';
+  status: 'pending_verification' | 'active' | 'suspended' | 'deleted';
+  email_verified: boolean;
+  last_login_at?: string;
+  created_at: string;
+  updated_at: string;
+  roles?: string[]; // from JWT — present in /auth/me response
+}
+
+export interface UpdateProfilePayload {
+  full_name?: string;
+  phone?: string;
+}
+
 // ─── Catalog ────────────────────────────────────────────────────────────────
 
 export interface Material {
@@ -109,3 +132,57 @@ export const ORDER_STATUS_STEP: Record<OrderStatus, number> = {
 export function isActiveOrder(status: OrderStatus): boolean {
   return !['done', 'cancelled', 'disputed'].includes(status);
 }
+
+// ─── Admin ───────────────────────────────────────────────────────────────────
+
+export type UserStatus = 'pending_verification' | 'active' | 'suspended' | 'deleted';
+export type UserRole = 'user' | 'collector' | 'admin' | 'super_admin';
+export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
+
+export interface AdminUser {
+  id: string;
+  keycloak_id: string;
+  email: string;
+  phone?: string;
+  full_name: string;
+  primary_role: UserRole;
+  status: UserStatus;
+  email_verified: boolean;
+  last_login_at?: string;
+  created_at: string;
+}
+
+export interface CollectorApplication {
+  id: string;
+  user_id: string;
+  business_name: string;
+  license_no?: string;
+  ktp_url: string;
+  siup_url?: string;
+  address: string;
+  status: ApplicationStatus;
+  rejection_reason?: string;
+  reviewed_by?: string;
+  submitted_at: string;
+  reviewed_at?: string;
+}
+
+export const USER_STATUS_LABEL: Record<UserStatus, string> = {
+  pending_verification: 'Belum Verifikasi',
+  active:               'Aktif',
+  suspended:            'Disuspend',
+  deleted:              'Dihapus',
+};
+
+export const USER_ROLE_LABEL: Record<UserRole, string> = {
+  user:        'Pengguna',
+  collector:   'Collector',
+  admin:       'Admin',
+  super_admin: 'Super Admin',
+};
+
+export const APPLICATION_STATUS_LABEL: Record<ApplicationStatus, string> = {
+  pending:  'Menunggu Review',
+  approved: 'Disetujui',
+  rejected: 'Ditolak',
+};

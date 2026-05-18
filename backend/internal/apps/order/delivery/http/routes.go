@@ -19,6 +19,7 @@ import (
 // Collector-side (require `collector` role):
 //   GET  /v1/collector/orders/incoming
 //   GET  /v1/collector/orders/me
+//   GET  /v1/collector/orders/:code
 //   POST /v1/collector/orders/:code/accept
 //   POST /v1/collector/orders/:code/start-pickup
 //   POST /v1/collector/orders/:code/arrive
@@ -45,6 +46,7 @@ func RegisterRoutes(
 	{
 		col.GET("/orders/incoming", collectorH.ListIncoming)
 		col.GET("/orders/me", collectorH.ListMine)
+		col.GET("/orders/:code", collectorH.GetByCode)
 		col.POST("/orders/:code/accept", collectorH.Accept)
 		col.POST("/orders/:code/start-pickup", collectorH.StartPickup)
 		col.POST("/orders/:code/arrive", collectorH.Arrive)

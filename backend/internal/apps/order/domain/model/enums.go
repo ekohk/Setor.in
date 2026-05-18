@@ -98,18 +98,19 @@ func (m Method) Value() (driver.Value, error) {
 type Grade string
 
 const (
-	GradeA Grade = "A" // clean, sorted     → +3%
-	GradeB Grade = "B" // mixed              → 0%
-	GradeC Grade = "C" // contaminated       → -10% (handled by collector setting actual_weight lower, not bonus)
+	GradeA Grade = "A" // clean, sorted     → harga penuh (potongan Rp 0/kg)
+	GradeB Grade = "B" // mixed              → potongan Rp 1.000/kg
+	GradeC Grade = "C" // contaminated       → potongan Rp 2.000/kg
 )
 
-// BonusForGrade returns the percentage bonus (positive integer, 0-100).
-// MVP business rule: A=+3, B=+0, C=+0. Negative adjustments are reflected
-// in actual_weight by collector, not in bonus.
-func BonusForGrade(g Grade) int {
+// DeductionPerKg returns the flat price deduction in rupiah per kg.
+// Grade A = Rp 0 (full price), B = Rp -1.000, C = Rp -2.000.
+func DeductionPerKg(g Grade) int {
 	switch g {
-	case GradeA:
-		return 3
+	case GradeB:
+		return -1000
+	case GradeC:
+		return -2000
 	}
 	return 0
 }

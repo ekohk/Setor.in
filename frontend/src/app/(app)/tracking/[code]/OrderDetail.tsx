@@ -10,6 +10,12 @@ function formatRupiah(n: number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 }
 
+function formatWeight(w?: string): string {
+  if (!w) return '—';
+  const n = parseFloat(w);
+  return isNaN(n) ? w : n.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+}
+
 function formatDateTime(iso: string) {
   return new Intl.DateTimeFormat('id-ID', {
     day: 'numeric', month: 'short', year: 'numeric',
@@ -172,8 +178,8 @@ export default function OrderDetail({ initialOrder }: Props) {
           <p className="text-[12px] font-bold text-ink-3 uppercase tracking-wider">Rincian Order</p>
 
           <Row label="Metode" value={order.method === 'pickup' ? 'Pickup — Driver jemput' : 'Drop-off'} />
-          <Row label="Estimasi Berat" value={`${order.estimated_weight_kg} kg`} />
-          {order.actual_weight_kg && <Row label="Berat Aktual" value={`${order.actual_weight_kg} kg`} />}
+          <Row label="Estimasi Berat" value={`${formatWeight(order.estimated_weight_kg)} kg`} />
+          {order.actual_weight_kg && <Row label="Berat Aktual" value={`${formatWeight(order.actual_weight_kg)} kg`} />}
           <Row label="Harga/kg" value={formatRupiah(order.unit_price_at_order)} />
           <Row label="Estimasi Payout" value={formatRupiah(order.estimated_payout)} highlight />
           {order.final_payout != null && <Row label="Payout Final" value={formatRupiah(order.final_payout)} highlight />}

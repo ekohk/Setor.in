@@ -43,6 +43,22 @@ func (uc *CollectorOrderUseCase) ListMine(ctx context.Context, collectorID uuid.
 	return uc.orderRepo.ListByCollector(ctx, collectorID, page, pageSize)
 }
 
+// GetByCode — fetch a single order for the collector detail view.
+// Allowed when: order is still incoming (received, no collector yet) OR
+// this collector is already assigned to the order.
+func (uc *CollectorOrderUseCase) GetByCode(ctx context.Context, collectorID uuid.UUID, orderCode string) (*model.Order, error) {
+	o, err := uc.orderRepo.FindByCode(ctx, orderCode)
+	if err != nil {
+		return nil, err
+	}
+	isIncoming := o.Status == model.StatusReceived
+	isAssigned := o.CollectorID != nil && *o.CollectorID == collectorID
+	if !isIncoming && !isAssigned {
+		return nil, apperr.New(apperr.CodeForbidden, "you don't have access to this order")
+	}
+	return o, nil
+}
+
 // Accept — collector picks up an order. Generates 4-digit OTP, sets
 // expires_at = NOW() + 30min, transitions received → accepted.
 func (uc *CollectorOrderUseCase) Accept(ctx context.Context, collectorID uuid.UUID, orderCode string) (*model.Order, error) {
@@ -187,7 +203,8 @@ func (uc *CollectorOrderUseCase) Weigh(ctx context.Context, collectorID uuid.UUI
 }
 
 // Quality — driver assigns grade and final payout is computed.
-//   final_payout = actual_weight * unit_price * (1 + bonus_pct/100)
+//   effective_price = unit_price_at_order + deduction_per_kg (deduction is 0 or negative)
+//   final_payout    = actual_weight * effective_price  (floored to integer rupiah)
 func (uc *CollectorOrderUseCase) Quality(ctx context.Context, collectorID uuid.UUID, orderCode string, req dto.QualityRequest) (*model.Order, error) {
 	o, err := uc.assertCollectorOwns(ctx, collectorID, orderCode)
 	if err != nil {
@@ -201,8 +218,12 @@ func (uc *CollectorOrderUseCase) Quality(ctx context.Context, collectorID uuid.U
 		return nil, fmt.Errorf("parse stored weight: %w", err)
 	}
 
-	bonus := model.BonusForGrade(model.Grade(req.Grade))
-	finalPayout := int64(float64(o.UnitPriceAtOrder) * w * (1 + float64(bonus)/100))
+	deduction := model.DeductionPerKg(model.Grade(req.Grade))
+	effectivePrice := int64(o.UnitPriceAtOrder) + int64(deduction)
+	if effectivePrice < 0 {
+		effectivePrice = 0
+	}
+	finalPayout := int64(float64(effectivePrice) * w)
 
 	updated, err := uc.orderRepo.Transition(ctx, o.ID, ports.TransitionParams{
 		ExpectedStatus:  model.StatusQuality,
@@ -210,7 +231,7 @@ func (uc *CollectorOrderUseCase) Quality(ctx context.Context, collectorID uuid.U
 		ChangedBy:       collectorID,
 		Notes:           req.Notes,
 		QualityGrade:    &req.Grade,
-		QualityBonusPct: &bonus,
+		QualityBonusPct: &deduction,
 		FinalPayout:     &finalPayout,
 	})
 	return updated, err

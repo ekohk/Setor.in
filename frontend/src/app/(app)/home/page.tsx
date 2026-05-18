@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import type { Order } from '@/types/api';
 import { ORDER_STATUS_LABEL, isActiveOrder } from '@/types/api';
@@ -36,6 +37,12 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default async function HomePage() {
   const session = await auth();
+
+  // Redirect non-user roles to their own dashboard.
+  const roles = (session?.user as Record<string, unknown> | undefined)?.roles as string[] | undefined ?? [];
+  if (roles.includes('super_admin') || roles.includes('admin')) redirect('/admin/users');
+  if (roles.includes('collector')) redirect('/collector/orders');
+
   const userName = session?.user?.name?.split(' ')[0] ?? 'Pengguna';
 
   // Fetch orders (may fail if backend not running — we handle gracefully)

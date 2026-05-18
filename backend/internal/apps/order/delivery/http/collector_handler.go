@@ -68,6 +68,21 @@ func (h *CollectorHandler) ListMine(c *gin.Context) {
 	response.Paginated(c, out, response.Pagination{Page: page, PageSize: pageSize, Total: total})
 }
 
+// GET /v1/collector/orders/:code
+func (h *CollectorHandler) GetByCode(c *gin.Context) {
+	cid, err := h.localUserID(c)
+	if err != nil {
+		response.Err(c, err)
+		return
+	}
+	o, err := h.uc.GetByCode(c.Request.Context(), cid, c.Param("code"))
+	if err != nil {
+		response.Err(c, err)
+		return
+	}
+	response.OK(c, dto.FromModel(o, cid, false))
+}
+
 // POST /v1/collector/orders/:code/accept
 func (h *CollectorHandler) Accept(c *gin.Context) {
 	h.runMutate(c, func(ctx context.Context, cid uuid.UUID, code string) (*model.Order, error) {

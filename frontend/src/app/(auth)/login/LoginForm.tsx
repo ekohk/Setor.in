@@ -26,7 +26,18 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(decodeError(params.get('error')));
+  const [error, setError] = useState<string | null>(() => {
+    const e = params.get('error');
+    if (!e) return null;
+    // Remove ?error= from URL immediately so refreshing / sharing the page
+    // doesn't show a stale error banner.
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('error');
+      window.history.replaceState(null, '', url.toString());
+    }
+    return decodeError(e);
+  });
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,7 +57,7 @@ export function LoginForm() {
       return;
     }
     if (res.error) {
-      setError(decodeError(res.error) ?? 'Email atau password salah.');
+      setError(decodeError(res.error));
       return;
     }
     router.replace(callbackUrl);
@@ -70,6 +81,7 @@ export function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
           className="w-full h-[48px] px-4 rounded-xl bg-paper-2 border border-transparent focus:border-accent focus:bg-surface focus:outline-none text-[15px] text-ink placeholder:text-ink-4 transition"
           placeholder="kamu@email.com"
+          suppressHydrationWarning
         />
       </div>
 
@@ -102,6 +114,7 @@ export function LoginForm() {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full h-[48px] pl-4 pr-12 rounded-xl bg-paper-2 border border-transparent focus:border-accent focus:bg-surface focus:outline-none text-[15px] text-ink placeholder:text-ink-4 transition"
             placeholder="Min. 8 karakter"
+            suppressHydrationWarning
           />
           <button
             type="button"
@@ -172,22 +185,19 @@ function Spinner() {
 
 // ─── Error code → friendly message ───────────────────────────────────────────
 
-function decodeError(code: string | null): string | null {
-  if (!code) return null;
+function decodeError(code: string | null): string {
+  if (!code) return 'Email atau password salah.';
   switch (code) {
     case 'CredentialsSignin':
+    case 'CallbackRouteError':
     case 'invalid_credentials':
-      return 'Email atau password salah.';
     case 'invalid_grant':
-      return 'Email atau password salah, atau email belum diverifikasi.';
+      return 'Email atau password salah.';
     case 'email_not_verified':
       return 'Email belum diverifikasi. Cek inbox Anda untuk link verifikasi.';
     case 'account_suspended':
       return 'Akun Anda dinonaktifkan sementara. Hubungi support@setor.in.';
-    case 'OAuthCallback':
-    case 'Configuration':
-      return 'Konfigurasi server bermasalah. Hubungi support@setor.in.';
     default:
-      return null;
+      return 'Email atau password salah.';
   }
 }

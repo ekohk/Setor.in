@@ -88,11 +88,20 @@ export const authConfig: NextAuthConfig = {
   ],
   callbacks: {
     async jwt({ token, user, trigger }) {
-      // First sign-in: copy fields from authorize() return into the JWT.
+      // First sign-in: copy fields from authorize() return into the JWT,
+      // then call /v1/auth/sync so the backend creates a local user row.
+      // sync is idempotent — safe to call on every fresh login.
       if (user) {
+        const accessToken = (user as Record<string, unknown>).accessToken as string;
+        // Sync once at login — runs in background, does not block token return.
+        fetch(`${process.env.BACKEND_URL ?? 'http://localhost:8000'}/v1/auth/sync`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: 'no-store',
+        }).catch(() => {});
         return {
           ...token,
-          accessToken: (user as Record<string, unknown>).accessToken,
+          accessToken,
           refreshToken: (user as Record<string, unknown>).refreshToken,
           accessTokenExpires: (user as Record<string, unknown>).accessTokenExpires,
           roles: (user as Record<string, unknown>).roles,

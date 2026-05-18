@@ -21,6 +21,13 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  // Session expired (refresh token failed) — force re-login.
+  if (req.auth?.error === 'RefreshAccessTokenError') {
+    const url = new URL('/login', req.nextUrl.origin);
+    url.searchParams.set('callbackUrl', pathname + req.nextUrl.search);
+    return NextResponse.redirect(url);
+  }
+
   if (!req.auth) {
     const url = new URL('/login', req.nextUrl.origin);
     url.searchParams.set('callbackUrl', pathname + req.nextUrl.search);
