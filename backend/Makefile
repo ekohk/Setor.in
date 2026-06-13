@@ -1,6 +1,7 @@
 .PHONY: help up down logs ps restart clean \
         migrate migrate-down migrate-status migrate-reset migrate-create \
-        sqlc-gen build run dev test lint tidy \
+	sqlc-gen build run dev test lint tidy \
+	docker-build docker-run \
         keycloak-export keycloak-logs
 
 # ─── Defaults ─────────
@@ -67,6 +68,14 @@ tidy: ## go mod tidy
 
 build: ## Build binary to bin/api
 	go build -o bin/api ./cmd/api
+
+DOCKER_IMAGE ?= setorin-api:dev
+
+docker-build: ## Build backend Docker image
+	docker build -t $(DOCKER_IMAGE) -f Dockerfile .
+
+docker-run: docker-build ## Run backend Docker image locally
+	docker run --rm -p 8000:8000 --env-file .env $(DOCKER_IMAGE)
 
 run: build ## Build & run
 	./bin/api

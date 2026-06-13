@@ -67,6 +67,14 @@
       "containerId" : "5a6e8903-e137-4012-8c4f-28c98d1444b2",
       "attributes" : { }
     }, {
+      "id" : "a3f7b5e1-8d2d-4a7b-9f3f-5e6f8e7b2c11",
+      "name" : "cv",
+      "description" : "CV partner account (separate from seller user)",
+      "composite" : false,
+      "clientRole" : false,
+      "containerId" : "5a6e8903-e137-4012-8c4f-28c98d1444b2",
+      "attributes" : { }
+    }, {
       "id" : "fc5777e5-3a59-4576-a439-be5773e3b996",
       "name" : "uma_authorization",
       "description" : "${role_uma_authorization}",

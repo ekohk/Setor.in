@@ -41,6 +41,7 @@ export default async function HomePage() {
   // Redirect non-user roles to their own dashboard.
   const roles = (session?.user as Record<string, unknown> | undefined)?.roles as string[] | undefined ?? [];
   if (roles.includes('super_admin') || roles.includes('admin')) redirect('/admin/users');
+  if (roles.includes('cv')) redirect('/cv');
   if (roles.includes('collector')) redirect('/collector/orders');
 
   const userName = session?.user?.name?.split(' ')[0] ?? 'Pengguna';

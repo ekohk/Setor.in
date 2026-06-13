@@ -22,10 +22,10 @@ ekonomi (plastik, logam, kertas, e-waste). Saat ini:
 **Setor.in** — marketplace mobile-first yang menghubungkan penjual sampah daur
 ulang (rumah tangga) dengan pengepul tersertifikasi, dengan:
 
-- Harga transparan per material per kg (real-time)
-- Verifikasi digital: OTP serah terima + live weighing + quality grading + foto
-- Wallet internal yang bisa di-withdraw ke bank/e-wallet
-- Satu app untuk seller & collector (mode toggle)
+- Estimasi harga marketplace per material (rentang harga per wilayah)
+- Verifikasi digital: OTP serah terima + live weighing + inspection result + foto
+- Cash-first transaction flow (wallet/payment gateway di phase berikutnya)
+- Satu app untuk seller, collector, dan CV partner
 
 ## 3. Goals (12 bulan)
 
@@ -62,12 +62,43 @@ Kumpul sampah skala blok (10–30 KK), jual collective tiap 2 minggu.
 Butuh fitur multi-source dalam 1 order.
 
 ### Admin internal Setor.in
-Update harga harian, resolve dispute, verify collector application.
+Role operasional internal untuk verifikasi, moderasi, dan maintenance platform.
+Tidak menjadi persona produk utama untuk phase 1.
+
+## 6. Phase 1 Core Operational Contract
+
+### Roles
+
+- `user` — upload foto barang, input estimasi berat, request pickup, setuju/tolak harga final.
+- `cv` — partner penerima material dari collector; input berat diterima, nominal pembelian, dan catatan kualitas.
+- `collector` — terima order, pickup, timbang ulang, tetapkan harga final per kg + total, isi catatan kondisi.
+- `super_admin` — operasional internal: suspend akun, promote role, monitoring, recovery.
+
+### API surface minimum
+
+- Public catalog: `GET /v1/materials`, `GET /v1/materials/:slug`
+- Auth sync/profile: `POST /v1/auth/sync`, `GET /v1/auth/me`, `GET /v1/users/me`, `PATCH /v1/users/me`
+- Seller flow: `POST /v1/orders`, `GET /v1/orders/me`, `GET /v1/orders/:code`, `POST /v1/orders/:code/cancel`, `POST /v1/orders/:code/confirm-cash`
+- CV flow: dashboard/incoming-material endpoints akan dipisah dari seller flow ketika task phase 2 dikerjakan
+- Collector flow: `GET /v1/collector/orders/incoming`, `GET /v1/collector/orders/me`, `GET /v1/collector/orders/:code`, `POST /v1/collector/orders/:code/accept`, `POST /v1/collector/orders/:code/start-pickup`, `POST /v1/collector/orders/:code/arrive`, `POST /v1/collector/orders/:code/verify-otp`, `POST /v1/collector/orders/:code/weigh`, `POST /v1/collector/orders/:code/inspection-result`
+- Internal admin: user moderation, collector application review, material pricing admin, and RBAC smoke test
+
+### DB anchors
+
+- `users`, `user_role_history` for identity and role change audit
+- `auth_events` for auth/audit trail
+- `collector_applications` for approval flow
+- `materials`, `material_price_estimates` for catalog and market-based estimation history
+- `orders`, `order_status_history`, `order_photos` for pickup and cash transaction flow
+
+### Rule of thumb
+
+Jika sebuah endpoint belum dipakai oleh phase 1 user/collector flow, jangan dulu dibawa ke kontrak publik. Simpan sebagai internal/admin atau phase 2+.
 
 ## 6. Sukses kriteria platform
 
 - 95% order selesai dalam <24 jam (untuk pickup)
-- 99% transaksi wallet ter-credit dalam <60 detik setelah quality check
+- 99% order final offer mendapat respons user (setuju/tolak) dalam <2 jam setelah inspection result
 - 0 incident kebocoran data PII
 - Withdrawal sukses rate >98%
 
@@ -90,7 +121,8 @@ Update harga harian, resolve dispute, verify collector application.
 | **Drop-off** | Method: user antar ke lokasi collector (+5% bonus) |
 | **Wallet** | Saldo internal user, bisa di-withdraw |
 | **Material** | Jenis bahan (8 kategori: plastic, cardboard, paper, aluminum, copper, steel, glass, e-waste) |
-| **Payout** | Uang yang diterima user setelah quality check |
+| **Inspection Result** | Hasil penilaian collector (berat aktual, harga per kg, total harga, catatan kondisi) |
+| **Payout** | Uang yang diterima user setelah menyetujui harga final |
 | **OTP** | Kode 4-digit untuk verifikasi serah terima |
 
 ## 9. Cross-references

@@ -10,13 +10,14 @@ type Role string
 
 const (
 	RoleUser       Role = "user"
+	RoleCV         Role = "cv"
 	RoleCollector  Role = "collector"
 	RoleAdmin      Role = "admin"
 	RoleSuperAdmin Role = "super_admin"
 )
 
 // AllRoles in promotion order (lowest → highest privilege).
-var AllRoles = []Role{RoleUser, RoleCollector, RoleAdmin, RoleSuperAdmin}
+var AllRoles = []Role{RoleUser, RoleCV, RoleCollector, RoleAdmin, RoleSuperAdmin}
 
 // IsValid returns true if r is one of AllRoles.
 func (r Role) IsValid() bool {

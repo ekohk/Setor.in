@@ -32,6 +32,8 @@ Format: `<filename> — <YYYY-MM-DD> — <PR#> — <summary>`
 |---|---|---|---|
 | `00006_create_orders.sql` | 2026-05-11 | TBD | Tabel `orders` dengan 10-state enum + `order_status_history` (audit trail) + `order_photos`. Sequence `order_code_seq` untuk ECC-XXXXX. Kolom `payment_method` siap untuk wallet (Phase 2) tapi default 'cash' untuk MVP. |
 
+| `00007_add_cv_role.sql` | 2026-05-18 | TBD | Tambah enum `cv` pada `user_role` agar role CV selaras dengan Keycloak dan middleware RBAC |
+
 Catatan: migration `00006_create_wallets.sql` sempat dibuat untuk wallet module, lalu **rolled back & dihapus** karena pivot ke cash payment. Spec asli di-archive ke `specs/_archived/0004-wallet/`.
 
 ---

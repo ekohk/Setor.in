@@ -57,9 +57,9 @@ func (uc *CollectorApplicationUseCase) Submit(
 ) (*model.CollectorApplication, error) {
 
 	for _, r := range userRoles {
-		if r == "collector" || r == "admin" || r == "super_admin" {
+		if r == "cv" || r == "collector" || r == "admin" || r == "super_admin" {
 			return nil, apperr.New(apperr.CodeConflict,
-				"you already have collector privileges or higher")
+				"you already have collector or partner privileges or higher")
 		}
 	}
 

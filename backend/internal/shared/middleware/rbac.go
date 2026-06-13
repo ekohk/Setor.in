@@ -11,6 +11,7 @@ import (
 const (
 	RoleUser        = "user"
 	RoleCollector   = "collector"
+	RoleCV          = "cv"
 	RoleAdmin       = "admin"
 	RoleSuperAdmin  = "super_admin"
 )

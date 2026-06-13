@@ -66,6 +66,30 @@ const COLLECTOR_NAV: NavItem[] = [
   },
 ];
 
+const CV_NAV: NavItem[] = [
+  {
+    href: '/cv',
+    label: 'Dashboard',
+    icon: (a) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={a ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M7 8h10" />
+        <path d="M7 12h6" />
+        <path d="M7 16h4" />
+      </svg>
+    ),
+  },
+  {
+    href: '/profile',
+    label: 'Profil',
+    icon: (a) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={a ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+      </svg>
+    ),
+  },
+];
+
 const ADMIN_NAV: NavItem[] = [
   {
     href: '/admin/users',
@@ -103,6 +127,7 @@ export default function BottomNav({ roles }: Props) {
 
   const items =
     roles.includes('super_admin') || roles.includes('admin') ? ADMIN_NAV :
+    roles.includes('cv') ? CV_NAV :
     roles.includes('collector') ? COLLECTOR_NAV :
     USER_NAV;
 

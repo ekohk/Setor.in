@@ -14,17 +14,19 @@ const (
 	StatusEnroute       Status = "enroute"
 	StatusArrived       Status = "arrived"
 	StatusWeighing      Status = "weighing"
-	StatusQuality       Status = "quality"
+	StatusInspection    Status = "inspection"
+	StatusFinalOffer    Status = "final_offer"
 	StatusCashHandover  Status = "cash_handover"
 	StatusDone          Status = "done"
 	StatusCancelled     Status = "cancelled"
+	StatusRejectedByUser Status = "rejected_by_user"
 	StatusDisputed      Status = "disputed"
 )
 
 // IsTerminal returns true if no further transition is allowed.
 func (s Status) IsTerminal() bool {
 	switch s {
-	case StatusDone, StatusCancelled, StatusDisputed:
+	case StatusDone, StatusCancelled, StatusRejectedByUser, StatusDisputed:
 		return true
 	}
 	return false
@@ -33,8 +35,8 @@ func (s Status) IsTerminal() bool {
 func (s Status) IsValid() bool {
 	switch s {
 	case StatusReceived, StatusAccepted, StatusEnroute, StatusArrived,
-		StatusWeighing, StatusQuality, StatusCashHandover,
-		StatusDone, StatusCancelled, StatusDisputed:
+		StatusWeighing, StatusInspection, StatusFinalOffer, StatusCashHandover,
+		StatusDone, StatusCancelled, StatusRejectedByUser, StatusDisputed:
 		return true
 	}
 	return false
@@ -92,25 +94,4 @@ func (m Method) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(m), nil
-}
-
-// Quality grade impacts payout. Hardcoded MVP — admin-configurable in Phase 2.
-type Grade string
-
-const (
-	GradeA Grade = "A" // clean, sorted     → harga penuh (potongan Rp 0/kg)
-	GradeB Grade = "B" // mixed              → potongan Rp 1.000/kg
-	GradeC Grade = "C" // contaminated       → potongan Rp 2.000/kg
-)
-
-// DeductionPerKg returns the flat price deduction in rupiah per kg.
-// Grade A = Rp 0 (full price), B = Rp -1.000, C = Rp -2.000.
-func DeductionPerKg(g Grade) int {
-	switch g {
-	case GradeB:
-		return -1000
-	case GradeC:
-		return -2000
-	}
-	return 0
 }

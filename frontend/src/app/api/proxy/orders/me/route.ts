@@ -12,10 +12,18 @@ export async function GET(req: NextRequest) {
   const page = searchParams.get('page') ?? '1';
   const pageSize = searchParams.get('page_size') ?? '20';
 
-  const upstream = await fetch(`${BASE}/v1/orders/me?page=${page}&page_size=${pageSize}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: 'no-store',
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${BASE}/v1/orders/me?page=${page}&page_size=${pageSize}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+  } catch {
+    return NextResponse.json(
+      { error: { code: 'UPSTREAM_UNAVAILABLE', message: 'Backend API is not reachable' } },
+      { status: 503 },
+    );
+  }
 
   const body = await upstream.json();
   return NextResponse.json(body, { status: upstream.status });

@@ -19,6 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 const ROLE_LABEL: Record<string, string> = {
   user:        'Pengguna',
+  cv:          'CV Partner',
   collector:   'Collector',
   admin:       'Admin',
   super_admin: 'Super Admin',

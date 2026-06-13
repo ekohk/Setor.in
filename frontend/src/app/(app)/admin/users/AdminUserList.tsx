@@ -19,6 +19,7 @@ const STATUS_COLOR: Record<UserStatus, string> = {
 
 const ROLE_COLOR: Record<UserRole, string> = {
   user:        'bg-paper-2 text-ink-3',
+  cv:          'bg-emerald-50 text-emerald-700',
   collector:   'bg-blue-50 text-blue-700',
   admin:       'bg-purple-50 text-purple-700',
   super_admin: 'bg-amber-50 text-amber-700',
@@ -148,6 +149,7 @@ export default function AdminUserList() {
           >
             <option value="">Semua Role</option>
             <option value="user">Pengguna</option>
+            <option value="cv">CV Partner</option>
             <option value="collector">Collector</option>
             <option value="admin">Admin</option>
             <option value="super_admin">Super Admin</option>
@@ -323,7 +325,7 @@ export default function AdminUserList() {
             {actionErr && <p className="text-[12px] text-red-600 mb-3">{actionErr}</p>}
 
             <div className="space-y-2 mb-4">
-              {(['user', 'collector', 'admin', 'super_admin'] as UserRole[]).map(r => (
+              {(['user', 'cv', 'collector', 'admin', 'super_admin'] as UserRole[]).map(r => (
                 <button
                   key={r}
                   onClick={() => setNewRole(r)}

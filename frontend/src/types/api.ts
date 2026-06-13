@@ -10,7 +10,7 @@ export interface UserProfile {
   phone?: string;
   full_name: string;
   avatar_url?: string;
-  primary_role: 'user' | 'collector' | 'admin' | 'super_admin';
+  primary_role: 'user' | 'cv' | 'collector' | 'admin' | 'super_admin';
   status: 'pending_verification' | 'active' | 'suspended' | 'deleted';
   email_verified: boolean;
   last_login_at?: string;
@@ -136,7 +136,7 @@ export function isActiveOrder(status: OrderStatus): boolean {
 // ─── Admin ───────────────────────────────────────────────────────────────────
 
 export type UserStatus = 'pending_verification' | 'active' | 'suspended' | 'deleted';
-export type UserRole = 'user' | 'collector' | 'admin' | 'super_admin';
+export type UserRole = 'user' | 'cv' | 'collector' | 'admin' | 'super_admin';
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
 
 export interface AdminUser {
@@ -176,6 +176,7 @@ export const USER_STATUS_LABEL: Record<UserStatus, string> = {
 
 export const USER_ROLE_LABEL: Record<UserRole, string> = {
   user:        'Pengguna',
+  cv:          'CV Partner',
   collector:   'Collector',
   admin:       'Admin',
   super_admin: 'Super Admin',

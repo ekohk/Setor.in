@@ -84,7 +84,7 @@ components:
         avatar_url: { type: string, nullable: true }
         primary_role:
           type: string
-          enum: [user, collector, admin, super_admin]
+          enum: [user, cv, collector, admin, super_admin]
         status:
           type: string
           enum: [pending_verification, active, suspended, deleted]
@@ -102,7 +102,7 @@ components:
             roles:
               type: array
               items: { type: string }
-              example: [user, collector]
+              example: [user, cv, collector]
 
     UpdateProfileRequest:
       type: object
@@ -152,10 +152,10 @@ components:
       properties:
         add:
           type: array
-          items: { type: string, enum: [user, collector, admin, super_admin] }
+          items: { type: string, enum: [user, cv, collector, admin, super_admin] }
         remove:
           type: array
-          items: { type: string, enum: [user, collector, admin, super_admin] }
+          items: { type: string, enum: [user, cv, collector, admin, super_admin] }
         reason: { type: string, nullable: true }
 
     RejectApplicationRequest:
@@ -335,7 +335,7 @@ paths:
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
         - in: query
           name: role
-          schema: { type: string, enum: [user, collector, admin, super_admin] }
+          schema: { type: string, enum: [user, cv, collector, admin, super_admin] }
         - in: query
           name: status
           schema: { type: string, enum: [pending_verification, active, suspended, deleted] }

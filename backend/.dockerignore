@@ -1,0 +1,8 @@
+bin/
+.git/
+.github/
+.vscode/
+tmp/
+coverage.out
+*.log
+.env

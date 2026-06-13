@@ -27,6 +27,7 @@ Eksekusi berurutan. Tiap task = 1 PR (kecuali T1 & T2 boleh digabung).
 | **T21** | Postman collection untuk smoke test | Collection committed `docs/postman/auth.json` | 1h |
 | **T22** | README quickstart 5-menit | Junior bisa setup dari nol dalam <30 menit | 1h |
 | **T23** | Integration test (testcontainers) — full flow register→sync→me→admin | `go test ./...` pass di CI | 4h |
+| **T24** | CV role foundation + dashboard skeleton | `cv` role distinct in UI/spec, `/cv` dashboard exists, no seller redirect leakage | 2h |
 
 **Total estimasi: ~46 jam (~6 hari kerja).**
 
@@ -61,4 +62,5 @@ T15 → T16 (user handler) → T17 (auth handler)
 T18, T19 → T17 (depends on auth middleware)
 T20 wires everything
 T21, T22, T23 → setelah T20
+T24 → setelah T10 dan T17 (role/UI foundation)
 ```
